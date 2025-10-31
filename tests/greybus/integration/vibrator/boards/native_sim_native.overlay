@@ -1,0 +1,36 @@
+/*
+ * Copyright (c) 2025 Ayush Singh, BeagleBoard.org
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+	zephyr,greybus {
+		gbbundle1 {
+			status = "okay";
+			compatible = "zephyr,greybus-bundle-vibrator";
+			vibrators = <&drv2605>;
+		};
+	};
+
+	test {
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		test_i2c: i2c@11112222 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "vnd,i2c";
+			reg = <0x11112222 0x1000>;
+			status = "okay";
+			clock-frequency = <I2C_BITRATE_STANDARD>;
+
+			drv2605: drv2605@0 {
+				compatible = "ti,drv2605";
+				reg = <0x0>;
+				status = "okay";
+				actuator-mode = "LRA";
+			};
+		};
+	};
+};
