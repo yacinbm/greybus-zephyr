@@ -17,24 +17,23 @@ config GREYBUS_HEAP_MEM_POOL_SIZE
 	help
 	  Heap memory pre-allocated for greybus subsystem
 
+config GREYBUS_SVC
+	bool "Enable greybus SVC implementation"
+	help
+	  This option enables software implementation of Greybus SVC.
+
+if GREYBUS_SVC
+
 config GREYBUS_APBRIDGE
 	bool "Enable greybus apbridge implementation"
 	help
 	  This option enables software implementation of Greybus APBridge.
-
-if GREYBUS_APBRIDGE
 
 config GREYBUS_APBRIDGE_CPORTS
 	int "Maximum number of cports supported by APBridge"
 	default 32
 	help
 	  Specify the maximum number of cports supported by the APBridge
-
-# TODO: Add standalone SVC support
-config GREYBUS_SVC
-	bool "Enable greybus SVC implementation"
-	help
-	  This option enables software implementation of Greybus SVC.
 
 endif
 
