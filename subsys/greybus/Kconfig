@@ -142,7 +142,7 @@ config GREYBUS_TLS_BUILTIN
 	help
 	  This option compiles all certificates into the application
 	  by converting the specified files into C arrays.
-	  
+
 	  Note, security may be compromised if an attacker has
 	  physical access to the device. As such this option is insecure.
 endchoice
