@@ -83,6 +83,9 @@ static uint8_t bundles[] = {
 #ifdef CONFIG_GREYBUS_LOOPBACK
 	GREYBUS_CLASS_LOOPBACK,
 #endif // CONFIG_GREYBUS_LOOPBACK
+#ifdef CONFIG_GREYBUS_BT_HCI
+	GREYBUS_CLASS_BT_HCI,
+#endif // CONFIG_GREYBUS_BT_HCI
 	DT_FOREACH_CHILD_STATUS_OKAY_SEP(_GREYBUS_BASE_NODE, _GB_BUNDLE_CB, (, ))};
 
 #define GREYBUS_MANIFEST_SIZE                                                                      \
