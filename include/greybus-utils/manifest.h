@@ -65,7 +65,8 @@
 #define _GREYBUS_SPECIAL_CPORTS                                                                    \
 	(1 + COND_CODE_1(CONFIG_GREYBUS_LOOPBACK, (1), (0)) +                                      \
 	 COND_CODE_1(CONFIG_GREYBUS_FW, (2), (0)) +                                                \
-	 COND_CODE_1(CONFIG_GREYBUS_LOG_BACKEND, (1), (0)) + GREYBUS_RAW_CPORT_COUNT)
+	 COND_CODE_1(CONFIG_GREYBUS_LOG_BACKEND, (1), (0)) +                                       \
+	 COND_CODE_1(CONFIG_GREYBUS_BT_HCI, (1), (0)) + GREYBUS_RAW_CPORT_COUNT)
 
 #define GREYBUS_CPORT_COUNT                                                                        \
 	(_GREYBUS_SPECIAL_CPORTS +                                                                 \
@@ -84,7 +85,8 @@
 typedef void (*manifest_handler)(unsigned char *manifest_file, int device_id, int manifest_number);
 
 /**
- * Write greybus manifest to the buffer. The buffer length should be >= GREYBUS_MANIFEST_SIZE
+ * Write greybus manifest to the buffer. The buffer length should be >=
+ * GREYBUS_MANIFEST_SIZE
  *
  * @return size written if successful.
  * @return -errno in case of error.

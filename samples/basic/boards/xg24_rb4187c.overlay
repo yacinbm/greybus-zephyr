@@ -1,11 +1,11 @@
 
 / {
 	zephyr,greybus {
-		gbbundle1 {
-			status = "okay";
-			compatible = "zephyr,greybus-bundle-bridged-phy";
-			uart-controllers = <&eusart1>;
-		};
+		//gbbundle1 {
+		//	status = "okay";
+		//	compatible = "zephyr,greybus-bundle-bridged-phy";
+		//	uart-controllers = <&eusart1>;
+		//};
 
 	};
 };

@@ -291,7 +291,7 @@ endif # GREYBUS_RAW
 
 config GREYBUS_BT_HCI
 	bool "Greybus BT HCI"
-	# depends on BT
+	depends on BT
 	help
 	  Select this for greybus BT HCI support. This is used to expose a BT HCI controller over Greybus.
 
