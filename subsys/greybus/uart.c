@@ -64,6 +64,8 @@ static void gb_uart_send_data(uint16_t cport, struct gb_message *req, const stru
 	const struct gb_uart_send_data_request *req_data =
 		(const struct gb_uart_send_data_request *)req->payload;
 
+	LOG_DBG("gb_uart_send_data: %d", sys_le16_to_cpu(req_data->size));
+
 	/* Success response does not signify that writing is done. So can be sent early */
 	gb_transport_message_empty_response_send_no_free(req, GB_OP_SUCCESS, cport);
 
