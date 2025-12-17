@@ -15,7 +15,10 @@
 
 K_MSGQ_DEFINE(rx_msgq, sizeof(struct gb_msg_with_cport), 2, 1);
 
-#define UART_DEVICE_NODE DT_CHOSEN(zephyr_uart_pipe)
+// eusart0
+// #define UART_DEVICE_NODE DT_CHOSEN(zephyr_uart_pipe)
+// usart0
+#define UART_DEVICE_NODE DT_CHOSEN(zephyr_console)
 
 LOG_MODULE_REGISTER(greybus_basic, CONFIG_GREYBUS_LOG_LEVEL);
 

@@ -1,0 +1,24 @@
+
+/ {
+	zephyr,greybus {
+		gbbundle1 {
+			status = "okay";
+			compatible = "zephyr,greybus-bundle-bridged-phy";
+			uart-controllers = <&eusart1>;
+		};
+
+	};
+};
+
+    &eusart0 {
+	compatible = "silabs,eusart-uart";
+        status = "okay";
+    };
+
+    &eusart1 {
+	compatible = "silabs,eusart-uart";
+	pinctrl-0 = <&eusart1_default>;
+	pinctrl-names = "default";
+	status = "okay";
+	/delete-property/ cs-gpios;
+    };
