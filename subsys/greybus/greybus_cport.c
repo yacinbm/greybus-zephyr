@@ -25,6 +25,7 @@ extern const struct gb_driver gb_i2c_driver;
 extern const struct gb_driver gb_loopback_driver;
 extern const struct gb_driver gb_log_driver;
 extern const struct gb_driver gb_vibrator_driver;
+extern const struct gb_driver gb_bt_hci_driver;
 
 /* Reset the counter to 0 */
 enum {
@@ -188,6 +189,9 @@ static struct gb_cport cports[] = {
 #ifdef CONFIG_GREYBUS_LOOPBACK
 	GB_CPORT(NULL, LOCAL_COUNTER, GREYBUS_PROTOCOL_LOOPBACK, &gb_loopback_driver),
 #endif // CONFIG_GREYBUS_LOOPBACK
+#ifdef CONFIG_GREYBUS_BT_HCI
+	GB_CPORT(NULL, LOCAL_COUNTER, GREYBUS_PROTOCOL_BT_HCI, &gb_bt_hci_driver),
+#endif // CONFIG_GREYBUS_BT_HCI
 	DT_FOREACH_CHILD_STATUS_OKAY(_GREYBUS_BASE_NODE, GB_CPORTS_BUNDLE_WRAPPER)};
 
 BUILD_ASSERT(GREYBUS_CPORT_COUNT == ARRAY_SIZE(cports));
