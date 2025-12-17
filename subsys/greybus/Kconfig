@@ -62,6 +62,14 @@ config GREYBUS_XPORT_DUMMY
 	help
 	  This is intended for testing and tracking base greybus subsystem size.
 
+config GREYBUS_XPORT_UART_HDLC
+	bool "Use the UART-HDLC Transport for Greybus"
+	depends on SERIAL
+	select CRC
+	select UART_INTERRUPT_DRIVEN
+	help
+	  This uses the UART-HDLC transport for Greybus.
+
 endchoice
 
 config GREYBUS_VENDOR_STRING

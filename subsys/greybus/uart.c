@@ -152,7 +152,9 @@ static void gb_uart_set_line_coding(uint16_t cport, struct gb_message *req,
 		return gb_transport_message_empty_response_send(req, GB_OP_INVALID, cport);
 	}
 
-	ret = uart_configure(dev, &conf);
+	// ret = uart_configure(dev, &conf);
+	// LOG_DBG("uart_configure ret: %d", ret);
+	ret = 0;
 	gb_transport_message_empty_response_send(req, gb_errno_to_op_result(ret), cport);
 }
 
@@ -163,20 +165,21 @@ static void gb_uart_set_control_line_state(uint16_t cport, struct gb_message *re
 					   const struct device *dev)
 {
 	int ret;
-	const struct gb_uart_set_control_line_state_request *req_data =
-		(const struct gb_uart_set_control_line_state_request *)req->payload;
+	// const struct gb_uart_set_control_line_state_request *req_data =
+	// (const struct gb_uart_set_control_line_state_request *)req->payload;
 
-	ret = uart_line_ctrl_set(dev, UART_LINE_CTRL_DTR, req_data->control & GB_UART_CTRL_DTR);
-	if (ret < 0) {
-		LOG_ERR("Failed to set ctrl dtr");
-		return gb_transport_message_empty_response_send(req, gb_errno_to_op_result(ret),
-								cport);
-	}
+	// ret = uart_line_ctrl_set(dev, UART_LINE_CTRL_DTR, req_data->control & GB_UART_CTRL_DTR);
+	// if (ret < 0) {
+	// LOG_ERR("Failed to set ctrl dtr 0x%lx", (unsigned long)ret);
+	// return gb_transport_message_empty_response_send(req, gb_errno_to_op_result(ret),
+	// cport);
+	// }
 
-	ret = uart_line_ctrl_set(dev, UART_LINE_CTRL_RTS, req_data->control & GB_UART_CTRL_RTS);
-	if (ret < 0) {
-		LOG_ERR("Failed to set ctrl rts");
-	}
+	// ret = uart_line_ctrl_set(dev, UART_LINE_CTRL_RTS, req_data->control & GB_UART_CTRL_RTS);
+	// if (ret < 0) {
+	// LOG_ERR("Failed to set ctrl rts");
+	// }
+	ret = 0;
 	gb_transport_message_empty_response_send(req, gb_errno_to_op_result(ret), cport);
 }
 
@@ -229,6 +232,8 @@ free_msg:
 static void gb_uart_handler(const void *priv, struct gb_message *msg, uint16_t cport)
 {
 	const struct device *dev = priv;
+
+	LOG_DBG("priv is %lx", (unsigned long)priv);
 
 	switch (gb_message_type(msg)) {
 	case GB_UART_TYPE_SEND_DATA:

@@ -37,15 +37,22 @@ struct greybus_manifest_cport {
 #define GREYBUS_MANIFEST_CPORT_SIZE                                                                \
 	_GREYBUS_DESCRIPTOR_SIZE(sizeof(struct greybus_descriptor_cport))
 
-#define _GREYBUS_MANIFEST_BUNDLES_SIZE(n) (GREYBUS_MANIFEST_BUNDLE_SIZE * n)
-#define _GREYBUS_MANIFEST_CPORTS_SIZE(n)  (GREYBUS_MANIFEST_CPORT_SIZE * n)
+#define _GREYBUS_MANIFEST_BUNDLES_SIZE(n) (GREYBUS_MANIFEST_BUNDLE_SIZE * (n))
+#define _GREYBUS_MANIFEST_CPORTS_SIZE(n)  (GREYBUS_MANIFEST_CPORT_SIZE * (n))
 
 #define _GB_BUNDLE_BRIDGED_PHY_CHECK(node_id)                                                      \
-	UTIL_AND(DT_NODE_HAS_COMPAT_STATUS(node_id, zephyr_greybus_bundle_bridged_phy, okay),      \
-		 UTIL_OR(COND_CODE_1(CONFIG_GREYBUS_GPIO,                                          \
-				     (DT_NODE_HAS_PROP(node_id, gpio_controllers)), (0)),          \
-			 COND_CODE_1(CONFIG_GREYBUS_I2C,                                           \
-				     (DT_NODE_HAS_PROP(node_id, i2c_controllers)), (0))))
+	UTIL_AND(                                                                                  \
+		DT_NODE_HAS_COMPAT_STATUS(node_id, zephyr_greybus_bundle_bridged_phy, okay),       \
+		UTIL_OR(COND_CODE_1(CONFIG_GREYBUS_GPIO,                                           \
+				    (DT_NODE_HAS_PROP(node_id, gpio_controllers)), (0)),           \
+			UTIL_OR(COND_CODE_1(CONFIG_GREYBUS_I2C,                                    \
+					    (DT_NODE_HAS_PROP(node_id, i2c_controllers)), (0)),    \
+				UTIL_OR(COND_CODE_1(CONFIG_GREYBUS_UART,                           \
+						    (DT_NODE_HAS_PROP(node_id, uart_controllers)), \
+						    (0)),                                          \
+					COND_CODE_1(CONFIG_GREYBUS_SPI,                            \
+						    (DT_NODE_HAS_PROP(node_id, spi_controllers)),  \
+						    (0))))))
 
 #define _GB_BUNDLE_LIGHTS_CHECK(node_id)                                                           \
 	UTIL_AND(DT_NODE_HAS_COMPAT_STATUS(node_id, zephyr_greybus_bundle_lights, okay),           \
@@ -82,8 +89,8 @@ static uint8_t bundles[] = {
 	(sizeof(struct greybus_manifest_header) + GREYBUS_MANIFEST_INTERFACE_SIZE +                \
 	 GREYBUS_MANIFEST_STRING_SIZE(CONFIG_GREYBUS_VENDOR_STRING) +                              \
 	 GREYBUS_MANIFEST_STRING_SIZE(CONFIG_GREYBUS_PRODUCT_STRING) +                             \
-	 _GREYBUS_MANIFEST_CPORTS_SIZE(GREYBUS_CPORT_COUNT) +                                      \
-	 _GREYBUS_MANIFEST_BUNDLES_SIZE(ARRAY_SIZE(bundles)))
+	 _GREYBUS_MANIFEST_CPORTS_SIZE(GREYBUS_CPORT_COUNT - 1) +                                  \
+	 _GREYBUS_MANIFEST_BUNDLES_SIZE(ARRAY_SIZE(bundles) - 1))
 
 size_t manifest_size(void)
 {
@@ -176,12 +183,13 @@ int manifest_create(uint8_t buf[], size_t len)
 	desc = (struct greybus_descriptor *)((uint8_t *)desc + ret);
 	ret = _set_greybus_string(desc, GREYBUS_PRODUCT_STRING_ID, CONFIG_GREYBUS_PRODUCT_STRING);
 
-	for (i = 0; i < ARRAY_SIZE(bundles); i++) {
+	for (i = 1; i < ARRAY_SIZE(bundles); i++) {
 		desc = (struct greybus_descriptor *)((uint8_t *)desc + ret);
 		ret = set_greybus_bundle(desc, i, bundles[i]);
 	}
 
-	for (i = 0; i < GREYBUS_CPORT_COUNT; ++i) {
+	/* Skip control CPort */
+	for (i = 1; i < GREYBUS_CPORT_COUNT; ++i) {
 		cport = gb_cport_get(i);
 		desc = (struct greybus_descriptor *)((uint8_t *)desc + ret);
 
@@ -229,7 +237,7 @@ void manifest_print(uint8_t buf[])
 			printk("protocol = 0x%01x\n", desc->cport.protocol_id);
 			break;
 		default:
-			printk("Invalid Greybus Descriptor\n");
+			printk("Invalid Greybus Descriptor, type = 0x%01x\n", desc->header.type);
 			return;
 		}
 
