@@ -31,183 +31,127 @@
 #include <greybus/greybus_protocols.h>
 #include "greybus_internal.h"
 #include <zephyr/drivers/bluetooth.h>
-
-#include <sl_btctrl_linklayer.h>
-#include <sl_hci_common_transport.h>
-#include <pa_conversions_efr32.h>
-#include <rail.h>
-#include <soc_radio.h>
-
-static K_KERNEL_STACK_DEFINE(slz_ll_stack, CONFIG_BT_SILABS_EFR32_LINK_LAYER_STACK_SIZE);
-static struct k_thread slz_ll_thread;
+#include <zephyr/bluetooth/hci_raw.h>
 
 LOG_MODULE_REGISTER(greybus_bt_hci, CONFIG_GREYBUS_LOG_LEVEL);
 
 /* Reserved buffer for rx data. */
-#define MAX_RX_BUF_SIZE 64
-
+#define MAX_RX_BUF_SIZE    64
+#define PACKET_TYPE        0
+#define HCI_CMD            0x01
+#define HCI_ACL            0x02
 #define GB_BT_HCI_TRANSFER 0x02
 
 static uint16_t cport_index;
 
-void BTLE_LL_EventRaise(uint32_t events);
-void BTLE_LL_Process(uint32_t events);
-int16_t BTLE_LL_SetMaxPower(int16_t power);
-
-/* Events mask for Link Layer */
-static atomic_t sli_btctrl_events;
-
-/* Semaphore for Link Layer */
-K_SEM_DEFINE(slz_ll_sem, 0, 1);
-
-/* Store event flags and increment the LL semaphore */
-void BTLE_LL_EventRaise(uint32_t events)
-{
-	atomic_or(&sli_btctrl_events, events);
-	k_sem_give(&slz_ll_sem);
-}
-
-/**
- * The HCI driver thread simply waits for the LL semaphore to signal that
- * it has an event to handle, whether it's from the radio, its own scheduler,
- * or an HCI event to pass upstairs. The BTLE_LL_Process function call will
- * take care of all of them, and add HCI events to the HCI queue when applicable.
- */
-static void slz_ll_thread_func(void *p1, void *p2, void *p3)
-{
-	ARG_UNUSED(p1);
-	ARG_UNUSED(p2);
-	ARG_UNUSED(p3);
-
-	while (true) {
-		uint32_t events;
-
-		k_sem_take(&slz_ll_sem, K_FOREVER);
-		events = atomic_clear(&sli_btctrl_events);
-		BTLE_LL_Process(events);
-	}
-}
-
-bool sli_pending_btctrl_events(void)
-{
-	return false; /* TODO: check if this should really return false! */
-}
-
-void sli_btctrl_events_init(void)
-{
-	atomic_clear(&sli_btctrl_events);
-}
-
-static void slz_set_tx_power(int16_t max_power_dbm)
-{
-	const int16_t max_power_cbm = max_power_dbm * 10;
-	const int16_t actual_max_power_cbm = BTLE_LL_SetMaxPower(max_power_cbm);
-	const int16_t actual_max_power_dbm = DIV_ROUND_CLOSEST(actual_max_power_cbm, 10);
-
-	if (actual_max_power_dbm != max_power_dbm) {
-		LOG_WRN("Unable to set max TX power to %d dBm, actual max is %d dBm", max_power_dbm,
-			actual_max_power_dbm);
-	}
-}
-
-/**
- * @brief Transmit HCI message using the currently used transport layer.
- * The HCI calls this function to transmit a full HCI message.
- * @param[in] data Packet type followed by HCI packet data.
- * @param[in] len Length of the `data` parameter
- * @return 0 - on success, or non-zero on failure.
- */
-uint32_t hci_common_transport_transmit(uint8_t *data, int16_t len)
-{
-	struct gb_message *req;
-	int ret;
-
-	req = gb_message_request_alloc(len, GB_BT_HCI_TRANSFER, true);
-	if (!req) {
-		LOG_ERR("Failed to allocate message");
-		return -ENOMEM;
-	}
-
-	LOG_DBG("Transmitting HCI message of length %d", len);
-
-	memcpy(req->payload, data, len);
-
-	ret = gb_transport_message_send(req, cport_index);
-	if (ret != 0) {
-		LOG_ERR("gb_transport_message_send failed, status=%d", ret);
-	}
-	gb_message_dealloc(req);
-
-	sl_btctrl_hci_transmit_complete(0);
-
-	return 0;
-}
+static struct k_fifo rx_queue;
+static K_THREAD_STACK_DEFINE(bt_rx_thread_stack, CONFIG_BT_HCI_TX_STACK_SIZE);
+static struct k_thread bt_rx_thread_data;
 
 static void gb_bt_hci_handler(const void *priv, struct gb_message *msg, uint16_t cport)
 {
 	int ret;
 
+	union {
+		struct bt_hci_cmd_hdr *cmd_hdr;
+		struct bt_hci_acl_hdr *acl_hdr;
+	} hci_hdr;
+
 	switch (gb_message_type(msg)) {
-	case GB_BT_HCI_TRANSFER:
-		ret = sl_btctrl_hci_receive(msg->payload, gb_message_payload_len(msg), true);
-		if (ret != 0) {
-			LOG_ERR("sl_btctrl_hci_receive failed, status=%d", ret);
+	case GB_BT_HCI_TRANSFER: {
+		struct net_buf *buf = NULL;
+		hci_hdr.cmd_hdr = (struct bt_hci_cmd_hdr *)&msg->payload[1];
+
+		switch (msg->payload[PACKET_TYPE]) {
+		case HCI_CMD:
+			buf = bt_buf_get_tx(BT_BUF_CMD, K_NO_WAIT, hci_hdr.cmd_hdr,
+					    sizeof(*hci_hdr.cmd_hdr));
+			if (!buf) {
+				LOG_ERR("No available command buffers!");
+				break;
+			}
+
+			net_buf_add_mem(buf, &msg->payload[4], hci_hdr.cmd_hdr->param_len);
+			break;
+
+		case HCI_ACL:
+			buf = bt_buf_get_tx(BT_BUF_ACL_OUT, K_NO_WAIT, hci_hdr.acl_hdr,
+					    sizeof(*hci_hdr.acl_hdr));
+			if (!buf) {
+				LOG_ERR("No available ACL buffers!");
+				break;
+			}
+
+			net_buf_add_mem(buf, &msg->payload[5],
+					sys_le16_to_cpu(hci_hdr.acl_hdr->len));
+			break;
+		default:
+			LOG_ERR("Unknown BT HCI buf type");
+			break;
 		}
+
+		LOG_DBG("buf %p type %u len %u", buf, buf->data[0], buf->len);
+
+		ret = bt_send(buf);
+		if (ret) {
+			LOG_ERR("Unable to send (ret %d)", ret);
+			net_buf_unref(buf);
+		}
+
+		LOG_DBG("Sent %d bytes to Bluetooth", buf->len);
 		break;
+	}
 	default:
 		LOG_ERR("Invalid type %d", gb_message_type(msg));
 		return gb_transport_message_empty_response_send(msg, GB_OP_PROTOCOL_BAD, cport);
 	}
 }
 
+static void bt_rx_thread(void *p1, void *p2, void *p3)
+{
+	ARG_UNUSED(p1);
+	ARG_UNUSED(p2);
+	ARG_UNUSED(p3);
+
+	while (1) {
+		struct net_buf *buf = k_fifo_get(&rx_queue, K_FOREVER);
+		if (buf) {
+			struct gb_message *msg = gb_message_request_alloc_with_payload(
+				buf->data, buf->len, GB_BT_HCI_TRANSFER, true);
+			gb_transport_message_send(msg, cport_index);
+
+			LOG_DBG("Sent %d bytes to Greybus", buf->len);
+			net_buf_unref(buf);
+		}
+	}
+}
+
 static void gb_bt_hci_connected(const void *priv, uint16_t cport)
 {
 	// struct hci_data *hci = dev->data;
-	sl_status_t sl_status;
-	int ret;
+	k_tid_t rx_id;
+	int err;
+
+	k_fifo_init(&rx_queue);
 
 	cport_index = cport;
 
-	sli_btctrl_events_init();
-
-	k_thread_create(&slz_ll_thread, slz_ll_stack, K_KERNEL_STACK_SIZEOF(slz_ll_stack),
-			slz_ll_thread_func, NULL, NULL, NULL,
-			K_PRIO_COOP(CONFIG_BT_SILABS_EFR32_LL_THREAD_PRIO), 0, K_NO_WAIT);
-	k_thread_name_set(&slz_ll_thread, "EFR32 LL");
-
-	LOG_DBG("BT HCI Connected");
-	sl_rail_util_pa_init();
-
-	/* Initialize Controller features based on Kconfig values */
-	sl_status = sl_btctrl_init();
-	if (sl_status != SL_STATUS_OK) {
-		LOG_ERR("sl_bt_controller_init failed, status=%d", sl_status);
-		ret = -EIO;
-		goto deinit;
+	err = bt_enable_raw(&rx_queue);
+	if (err) {
+		LOG_ERR("bt_enable_raw: %d; aborting", err);
+		return;
 	}
 
-	slz_set_tx_power(CONFIG_BT_CTLR_TX_PWR_ANTENNA);
-
-	if (IS_ENABLED(CONFIG_PM)) {
-		RAIL_ConfigSleep(sli_btctrl_get_radio_context_handle(),
-				 RAIL_SLEEP_CONFIG_TIMERSYNC_ENABLED);
-		RAIL_Status_t status = RAIL_InitPowerManager();
-
-		if (status != RAIL_STATUS_NO_ERROR) {
-			LOG_ERR("RAIL: failed to initialize power management, status=%d", status);
-			ret = -EIO;
-			goto deinit;
-		}
-	}
-
-	/* Set up interrupts after Controller init, because it will overwrite them. */
-	rail_isr_installer();
+	/* Spawn the RX thread, which sends data received from the radio to the Greybus host
+	 */
+	rx_id = k_thread_create(&bt_rx_thread_data, bt_rx_thread_stack,
+				K_THREAD_STACK_SIZEOF(bt_rx_thread_stack), bt_rx_thread, NULL, NULL,
+				NULL, K_PRIO_COOP(7), 0, K_NO_WAIT);
+	k_thread_name_set(&bt_rx_thread_data, "bt_rx_thread");
 
 	LOG_DBG("SiLabs BT HCI started");
 
 	return;
-deinit:
-	sl_btctrl_deinit(); /* No-op if controller initialization failed */
 }
 
 static void gb_bt_hci_disconnected(const void *priv)
