@@ -41,7 +41,7 @@ LOG_MODULE_REGISTER(greybus, CONFIG_GREYBUS_LOG_LEVEL);
 #define GB_PING_TYPE 0x00
 
 /* 2 msg per cport seems to be a good number */
-K_MSGQ_DEFINE(gb_rx_msgq, sizeof(struct gb_msg_with_cport), GREYBUS_CPORT_COUNT * 2, 1);
+K_MSGQ_DEFINE(gb_rx_msgq, sizeof(struct gb_msg_with_cport), 10 * 2, 1);
 
 K_THREAD_STACK_DEFINE(gb_rx_thread_stack, 1280);
 static struct k_thread gb_rx_thread;

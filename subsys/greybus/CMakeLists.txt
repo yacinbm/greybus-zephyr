@@ -34,6 +34,14 @@ zephyr_library_sources_ifdef(
 	svc.c
 )
 
+# Host-specific files
+zephyr_library_sources_ifdef(
+	CONFIG_GREYBUS_HOST
+	greybus-core.c
+  greybus_transport.c
+  platform/host.c
+)
+
 if(CONFIG_GREYBUS_TLS_BUILTIN)
   set(gen_dir ${ZEPHYR_BINARY_DIR}/include/generated/)
 

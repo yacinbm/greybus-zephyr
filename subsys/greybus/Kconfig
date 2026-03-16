@@ -307,6 +307,23 @@ endif # GREYBUS_SERVICE
 
 endif # GREYBUS_NODE
 
+config GREYBUS_HOST
+	bool "Enable greybus host support"
+	default n
+	help
+	  Select this for greybus host support.
+
+if GREYBUS_HOST
+
+config GREYBUS_HOST_INIT_PRIORITY
+	int "default Greybus Host Init Priority"
+	default 85
+	range 0 99
+	help
+	  Greybus host init priority to ensure device initialization order.
+
+endif # GREYBUS_HOST
+
 module = GREYBUS
 module-str = Greybus
 source "subsys/logging/Kconfig.template.log_config"
