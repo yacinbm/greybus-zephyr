@@ -16,6 +16,14 @@ struct gb_cport {
 	uint8_t protocol;
 };
 
+#define GB_CPORT(_priv, _bundle, _protocol, _driver)                                               \
+	{                                                                                          \
+		.bundle = _bundle,                                                                 \
+		.protocol = _protocol,                                                             \
+		.priv = _priv,                                                                     \
+		.driver = _driver,                                                                 \
+	}
+
 const struct gb_cport *gb_cport_get(uint16_t cport);
 
 /**
