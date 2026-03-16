@@ -7,10 +7,24 @@
 #include <zephyr/init.h>
 #include <zephyr/logging/log.h>
 #include <greybus/greybus.h>
+#include <greybus/host.h>
+#include "../greybus_cport.h"
 #include "../greybus_internal.h"
 #include "../greybus_transport.h"
 
 LOG_MODULE_REGISTER(greybus_host, CONFIG_GREYBUS_LOG_LEVEL);
+
+static const struct greybush_bundle_class_match *greybush_cport_match(struct gb_cport *cport)
+{
+	STRUCT_SECTION_FOREACH(greybush_class_node, c_node) {
+		const struct greybush_bundle_class_match *m = c_node->filter;
+
+		if (m->class == cport->bundle && m->protocol == cport->protocol)
+			return m;
+	}
+
+	return NULL;
+}
 
 int greybus_host_init(void)
 {
