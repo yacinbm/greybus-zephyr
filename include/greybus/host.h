@@ -5,14 +5,6 @@
 struct gb_cport;
 
 /**
- * @brief Greybus host structure.
- */
-struct gb_host {
-	struct gb_cport **cports;
-	uint8_t cport_count;
-};
-
-/**
  * @brief Bundle matching structure.
  */
 struct greybush_bundle_class_match {
@@ -44,6 +36,8 @@ struct greybush_class_node {
 	/** Filter rules to match this USB host class instance against a device class **/
 	const struct greybush_bundle_class_match *filter;
 };
+
+int gb_control_connection_enable(const struct gb_cport *cport);
 
 /**
  * @brief Define Greybus host support bundle match

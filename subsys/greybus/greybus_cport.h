@@ -11,11 +11,13 @@
 #include "greybus_internal.h"
 
 struct gb_host;
+struct gb_bundle_driver;
 struct gb_cport {
 	const struct gb_driver *driver;
 	const void *priv;
 	uint8_t bundle;
 	uint8_t protocol;
+	uint16_t id;
 };
 
 #define GB_CPORT(_priv, _bundle, _protocol, _driver)                                               \
@@ -26,7 +28,7 @@ struct gb_cport {
 		.driver = _driver,                                                                 \
 	}
 
-struct gb_cport *gb_cport_add(struct gb_host *host, const struct gb_bundle_driver *bundle_driver,
+struct gb_cport *gb_cport_add(const struct gb_bundle_driver *bundle_driver,
 			      const struct gb_driver *driver, void *priv, uint8_t protocol,
 			      uint8_t id);
 const struct gb_cport *gb_cport_get(uint16_t cport);

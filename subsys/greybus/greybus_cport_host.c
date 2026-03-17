@@ -18,13 +18,13 @@ extern const struct gb_control_priv_data gb_control_priv_data;
 
 static struct gb_cport *cports[CONFIG_GREYBUS_HOST_CPORT_MAX_COUNT];
 
-static int cport_add(struct gb_host *host, struct gb_cport *cport, uint8_t id)
+static int cport_add(struct gb_cport *cport, uint8_t id)
 {
-	host->cports[id] = cport;
+	cports[id] = cport;
 	return 0;
 }
 
-struct gb_cport *gb_cport_add(struct gb_host *host, const struct gb_bundle_driver *bundle_driver,
+struct gb_cport *gb_cport_add(const struct gb_bundle_driver *bundle_driver,
 			      const struct gb_driver *driver, void *priv, uint8_t protocol,
 			      uint8_t id)
 {
@@ -36,8 +36,9 @@ struct gb_cport *gb_cport_add(struct gb_host *host, const struct gb_bundle_drive
 	cport->driver = driver;
 	cport->priv = priv;
 	cport->protocol = protocol;
+	cport->id = id;
 
-	cport_add(host, cport, id);
+	cport_add(cport, id);
 
 	return cport;
 }

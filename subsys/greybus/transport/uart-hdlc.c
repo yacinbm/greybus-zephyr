@@ -163,6 +163,8 @@ static int stop_listening(uint16_t cport)
 
 static int trans_send(uint16_t cport, const struct gb_message *msg)
 {
+	LOG_DBG("sending message to cport %u. Type: %u, Result: %u, id: %u", cport,
+		msg->header.type, msg->header.result, msg->header.operation_id);
 	return gb_message_hdlc_send(msg, cport);
 }
 

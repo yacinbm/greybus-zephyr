@@ -33,7 +33,7 @@ struct gpio_greybush_data {
 	struct gpio_driver_data common;
 
 	struct k_msgq msgq;
-	char msgq_buffer[1 * sizeof(struct gpio_greybush_msg_queue_item)];
+	char msgq_buffer[10 * sizeof(struct gpio_greybush_msg_queue_item)];
 
 	uint16_t cport;
 	uint32_t activated;
@@ -45,14 +45,16 @@ static void gpio_greybush_op_handler(const void *priv, struct gb_message *msg, u
 	const struct device *dev = priv;
 	struct gpio_greybush_data *data = dev->data;
 
+	LOG_DBG("GPIO Greybush OP Handler");
+
 	struct gpio_greybush_msg_queue_item item = {
 		.dev = dev,
 		.msg = msg,
 	};
 
 	/* send data to consumers */
-        while (k_msgq_put(&data->msgq, &item, K_NO_WAIT) != 0) {
-        }
+	while (k_msgq_put(&data->msgq, &item, K_NO_WAIT) != 0) {
+	}
 }
 
 static int gpio_greybus_activate(const struct device *dev, gpio_pin_t pin)
@@ -74,11 +76,13 @@ static int gpio_greybus_activate(const struct device *dev, gpio_pin_t pin)
 	gb_transport_message_send(req, data->cport);
 	gb_message_dealloc(req);
 
-	 while (k_msgq_get(&data->msgq, &resp_item, K_FOREVER) != 0);
+	while (k_msgq_get(&data->msgq, &resp_item, K_FOREVER) != 0)
+		;
 
 	__ASSERT(gb_message_is_response(resp_item.msg), "GB Message should be a response");
 	__ASSERT(gb_message_is_success(resp_item.msg), "GB Message should be a success");
-	__ASSERT(gb_message_type(resp_item.msg) == GB_GPIO_TYPE_ACTIVATE, "GB Message type should be GPIO ACTIVATE");
+	__ASSERT(gb_message_type(resp_item.msg) == GB_GPIO_TYPE_ACTIVATE,
+		 "GB Message type should be GPIO ACTIVATE");
 
 	return 0;
 }
@@ -104,13 +108,15 @@ static int gpio_greybush_get_line_count(const struct device *dev)
 	gb_transport_message_send(req, data->cport);
 	gb_message_dealloc(req);
 
-	 while (k_msgq_get(&data->msgq, &resp_item, K_FOREVER) != 0);
+	while (k_msgq_get(&data->msgq, &resp_item, K_FOREVER) != 0)
+		;
 
 	__ASSERT(gb_message_is_response(resp_item.msg), "GB Message should be a response");
 	__ASSERT(gb_message_is_success(resp_item.msg), "GB Message should be a success");
-	__ASSERT(gb_message_type(resp_item.msg) == GB_GPIO_TYPE_LINE_COUNT, "GB Message type should be GPIO ACTIVATE");
+	__ASSERT(gb_message_type(resp_item.msg) == GB_GPIO_TYPE_LINE_COUNT,
+		 "GB Message type should be GPIO ACTIVATE");
 
-	resp_data = (struct gb_gpio_line_count_response*)resp_item.msg->payload;
+	resp_data = (struct gb_gpio_line_count_response *)resp_item.msg->payload;
 
 	int line_count = resp_data->count;
 
@@ -193,7 +199,8 @@ static int gpio_greybush_configure(const struct device *dev, gpio_pin_t pin, gpi
 	gb_transport_message_send(req, data->cport);
 	gb_message_dealloc(req);
 
-	 while (k_msgq_get(&data->msgq, &resp_item, K_FOREVER) != 0);
+	while (k_msgq_get(&data->msgq, &resp_item, K_FOREVER) != 0)
+		;
 
 	__ASSERT(gb_message_is_response(resp_item.msg), "GB Message should be a response");
 	__ASSERT(gb_message_is_success(resp_item.msg), "GB Message should be a success");
@@ -210,7 +217,7 @@ static int gpio_greybush_set_pin_value(const struct device *dev, u8 gpio, u8 val
 	struct gb_gpio_set_value_request *req_data;
 	struct gpio_greybush_msg_queue_item resp_item;
 
-	req = gb_message_request_alloc(0, GB_GPIO_TYPE_SET_VALUE, false);
+	req = gb_message_request_alloc(sizeof(*req_data), GB_GPIO_TYPE_SET_VALUE, false);
 	if (!req) {
 		LOG_ERR("Failed to allocate message");
 		return -ENOMEM;
@@ -223,11 +230,13 @@ static int gpio_greybush_set_pin_value(const struct device *dev, u8 gpio, u8 val
 	gb_transport_message_send(req, data->cport);
 	gb_message_dealloc(req);
 
-	 while (k_msgq_get(&data->msgq, &resp_item, K_FOREVER) != 0);
+	while (k_msgq_get(&data->msgq, &resp_item, K_FOREVER) != 0)
+		;
 
 	__ASSERT(gb_message_is_response(resp_item.msg), "GB Message should be a response");
 	__ASSERT(gb_message_is_success(resp_item.msg), "GB Message should be a success");
-	__ASSERT(gb_message_type(resp_item.msg) == GB_GPIO_TYPE_SET_VALUE, "GB Message type should be GPIO SET VALUE");
+	__ASSERT(gb_message_type(resp_item.msg) == GB_GPIO_TYPE_SET_VALUE,
+		 "GB Message type should be GPIO SET VALUE");
 
 	gb_message_dealloc(resp_item.msg);
 
@@ -239,12 +248,10 @@ static int gpio_greybush_set_bits_raw(const struct device *dev, uint32_t mask)
 	return gpio_greybush_set_pin_value(dev, LSB_GET(mask), 1);
 }
 
-static int gpio_gecko_port_clear_bits_raw(const struct device *dev,
-					  uint32_t mask)
+static int gpio_gecko_port_clear_bits_raw(const struct device *dev, uint32_t mask)
 {
 	return gpio_greybush_set_pin_value(dev, LSB_GET(mask), 0);
 }
-
 
 #ifdef CONFIG_GPIO_GET_CONFIG
 static int gpio_gecko_get_config(const struct device *dev, gpio_pin_t pin, gpio_flags_t *out_flags)
@@ -458,9 +465,18 @@ static int greybush_gpio_probe(const struct gb_cport *cport)
 	const struct device *dev = cport->priv;
 	struct gpio_greybush_data *data = dev->data;
 
+	int ret = gb_control_connection_enable(cport);
+	if (ret) {
+		return ret;
+	}
+
+	k_msgq_init(&data->msgq, data->msgq_buffer, sizeof(struct gpio_greybush_msg_queue_item),
+		    10);
+
+	data->cport = cport->id;
 	data->ngpios = gpio_greybush_get_line_count(dev);
 
-	return 0;
+	return device_init(dev);
 }
 
 struct gb_bundle_driver greybush_class_gpio_driver = {
@@ -477,30 +493,26 @@ struct gb_bundle_driver greybush_class_gpio_driver = {
 
 static int gpio_greybush_init(const struct device *dev)
 {
-	struct gpio_greybush_data *data = dev->data;
-
-	k_msgq_init(&data->msgq,
-		    data->msgq_buffer,
-		    sizeof(struct gpio_greybush_msg_queue_item),
-		    1);
-
 	return 0;
 }
 
-static struct gb_driver gpio_greybush_driver = {
-	.op_handler = gpio_greybush_op_handler
-};
+static struct gb_driver gpio_greybush_driver = {.op_handler = gpio_greybush_op_handler};
 
 #define CONFIG_GREYBUSH_CLASS_GPIO_INSTANCES_COUNT 1
 #define CONFIG_GREYBUSH_CLASS_PRIORITY             50
+
+#define _DEVICE_DEFINE(dev_id, name, init_fn, pm, data, config, level, prio, api)                  \
+	Z_DEVICE_STATE_DEFINE(dev_id);                                                             \
+	Z_DEVICE_DEFINE(DT_INVALID_NODE, dev_id, name, init_fn, NULL, DEVICE_FLAG_INIT_DEFERRED,   \
+			pm, data, config, level, prio, api, &Z_DEVICE_STATE_NAME(dev_id))
 
 #define GREYBUSH_GPIO_DEVICE_DEFINE(n, _)                                                          \
                                                                                                    \
 	static struct gpio_greybush_data gpio_greybush_data_##n = {};                              \
                                                                                                    \
-	DEVICE_DEFINE(gpio_greybush_##n, "gpio_greybush_" #n, gpio_greybush_init, NULL,            \
-		      &gpio_greybush_data_##n, NULL, POST_KERNEL, CONFIG_GREYBUSH_CLASS_PRIORITY,  \
-		      &gpio_greybush_driver_api);                                                  \
+	_DEVICE_DEFINE(gpio_greybush_##n, "gpio_greybush_" #n, gpio_greybush_init, NULL,           \
+		       &gpio_greybush_data_##n, NULL, POST_KERNEL, CONFIG_GREYBUSH_CLASS_PRIORITY, \
+		       &gpio_greybush_driver_api);                                                 \
                                                                                                    \
 	GREYBUSH_DEFINE_BUNDLE_CLASS(greybus_c_data_##n, &greybush_class_gpio_driver,              \
 				     &gpio_greybush_driver, (void *)DEVICE_GET(gpio_greybush_##n), \

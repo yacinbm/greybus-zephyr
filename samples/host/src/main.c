@@ -32,15 +32,15 @@ static struct gpio_callback button_cb_data;
  * The led0 devicetree alias is optional. If present, we'll use it
  * to turn on the LED whenever the button is pressed.
  */
-static struct device *led;
+static const struct device *led;
+static bool toggle_led = false;
+static bool led_state = false;
 
 void button_pressed(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
 {
-	static bool led_state = false;
 	printk("Button pressed at %" PRIu32 "\n", k_cycle_get_32());
 
-	led_state = !led_state;
-	gpio_pin_set(led, 0, led_state);
+	toggle_led = true;
 }
 
 int main(void)
@@ -70,28 +70,32 @@ int main(void)
 	gpio_add_callback(button.port, &button_cb_data);
 	printk("Set up button at %s pin %d\n", button.port->name, button.pin);
 
-	const struct device *gb_gpio = device_get_binding("gpio_greybush_0");
-	if (!gb_gpio) {
-		printk("Error: GPIO device %s is not ready\n", gb_gpio->name);
-		return 0;
-	}
+	while (1) {
+		led = device_get_binding("gpio_greybush_0");
+		if (led) {
+			break;
+		}
 
-	while (!device_is_ready(gb_gpio)) {
 		k_msleep(100);
 	}
 
-	if (led) {
-		ret = gpio_pin_configure(led, 0, GPIO_OUTPUT);
-		if (ret != 0) {
-			printk("Error %d: failed to configure LED device %s pin %d\n", ret,
-			       led->name, 0);
-			led = NULL;
-		} else {
-			printk("Set up LED at %s pin %d\n", led->name, 0);
-		}
+	ret = gpio_pin_configure(led, 2, GPIO_OUTPUT);
+	if (ret != 0) {
+		printk("Error %d: failed to configure LED device %s pin %d\n", ret, led->name, 0);
+		led = NULL;
+	} else {
+		printk("Set up LED at %s pin %d\n", led->name, 2);
 	}
 
 	printk("Press the button\n");
 
+	while (1) {
+		if (toggle_led) {
+			led_state = !led_state;
+			gpio_pin_set(led, 2, led_state);
+			toggle_led = false;
+		}
+		k_msleep(100);
+	}
 	return 0;
 }

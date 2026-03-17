@@ -35,7 +35,7 @@ static const struct greybush_class_node *greybush_cport_match(uint8_t class, uin
 	return NULL;
 }
 
-static int gb_manifest_parse(struct gb_host *host)
+static int gb_manifest_parse()
 {
 	// Mock manifest parsing
 
@@ -50,7 +50,7 @@ static int gb_manifest_parse(struct gb_host *host)
 	int id = 1;
 
 	struct gb_cport *cport =
-		gb_cport_add(host, data->api, data->driver, data->priv, GREYBUS_PROTOCOL_GPIO, id);
+		gb_cport_add(data->api, data->driver, data->priv, GREYBUS_PROTOCOL_GPIO, id);
 	if (!cport) {
 		LOG_ERR("Failed to create cport");
 		return -ENOMEM;
@@ -63,10 +63,6 @@ static int gb_manifest_parse(struct gb_host *host)
 
 static int greybus_host_init(void)
 {
-	static struct gb_host host = {
-		.cport_count = CONFIG_GREYBUS_HOST_CPORT_MAX_COUNT,
-	};
-	host.cports = gb_alloc(sizeof(struct gb_cport *) * CONFIG_GREYBUS_HOST_CPORT_MAX_COUNT);
 	const struct gb_transport_backend *xport = gb_transport_get_backend();
 
 	LOG_DBG("Greybus initializing..");
@@ -78,9 +74,8 @@ static int greybus_host_init(void)
 	}
 
 	// Register Control CPort
-	struct gb_cport *control_cport =
-		gb_cport_add(&host, &gb_control_bundle_driver, &gb_control_driver, NULL,
-			     GREYBUS_PROTOCOL_CONTROL, 0);
+	struct gb_cport *control_cport = gb_cport_add(&gb_control_bundle_driver, &gb_control_driver,
+						      NULL, GREYBUS_PROTOCOL_CONTROL, 0);
 	if (!control_cport) {
 		LOG_ERR("Failed to create control cport");
 		return -ENOMEM;
@@ -88,7 +83,7 @@ static int greybus_host_init(void)
 
 	gb_control_bundle_driver.probe(control_cport);
 
-	gb_manifest_parse(&host);
+	gb_manifest_parse();
 
 	LOG_INF("Greybus host is active");
 	return 0;

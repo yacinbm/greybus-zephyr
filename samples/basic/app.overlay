@@ -6,6 +6,11 @@
 
 / {
 	zephyr,greybus {
+		gbbundle1 {
+			status = "okay";
+			compatible = "zephyr,greybus-bundle-bridged-phy";
+			gpio-controllers = <&gpiob>;
+		};
 	};
 };
 &pinctrl {
@@ -33,4 +38,8 @@
 	gb_uart: zephyr,greybus {
 		status = "okay";
 	};
+};
+
+&gpiob {
+	status = "okay";
 };

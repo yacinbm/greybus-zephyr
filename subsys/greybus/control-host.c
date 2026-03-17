@@ -14,6 +14,10 @@ int gb_control_connection_enable(const struct gb_cport *cport)
 	struct gb_message *msg = gb_message_request_alloc(
 		sizeof(struct gb_control_connected_request), GB_CONTROL_TYPE_CONNECTED, false);
 
+	struct gb_control_connected_request *req =
+		(struct gb_control_connected_request *)msg->payload;
+	req->cport_id = sys_cpu_to_le16(cport->id);
+
 	gb_transport_message_send(msg, GB_CONTROL_CPORT_ID);
 
 	gb_message_dealloc(msg);
