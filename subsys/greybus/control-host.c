@@ -21,12 +21,12 @@ int gb_control_connection_enable(const struct gb_cport *cport)
 	return 0;
 }
 
-static void gb_control_host_probe(const struct gb_cport *cport)
+static int gb_control_host_probe(const struct gb_cport *cport)
 {
 	LOG_INF("Greybus control host probe");
 
 	// Host control CPort starts with sending a Control Connected command
-	gb_control_connection_enable(cport);
+	return gb_control_connection_enable(cport);
 }
 
 const struct gb_bundle_driver gb_control_bundle_driver = {

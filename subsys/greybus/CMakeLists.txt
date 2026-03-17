@@ -35,6 +35,7 @@ zephyr_library_sources_ifdef(
 )
 
 # Host-specific files
+if(CONFIG_GREYBUS_HOST)
 zephyr_library_sources_ifdef(
 	CONFIG_GREYBUS_HOST
   control-host.c
@@ -43,6 +44,10 @@ zephyr_library_sources_ifdef(
   greybus_transport.c
   platform/host.c
 )
+zephyr_library_sources_ifdef(CONFIG_GREYBUS_GPIO host/greybush-gpio.c)
+
+zephyr_linker_sources(DATA_SECTIONS host/greybush_class_data.ld)
+endif()
 
 if(CONFIG_GREYBUS_TLS_BUILTIN)
   set(gen_dir ${ZEPHYR_BINARY_DIR}/include/generated/)
@@ -72,6 +77,7 @@ zephyr_library_sources_ifdef(
 )
 
 # Protocols
+if(CONFIG_GREYBUS_NODE)
 zephyr_library_sources_ifdef(CONFIG_GREYBUS_AUDIO audio.c)
 zephyr_library_sources_ifdef(CONFIG_GREYBUS_CAMERA camera.c)
 zephyr_library_sources_ifdef(CONFIG_GREYBUS_GPIO gpio.c)
@@ -89,3 +95,4 @@ zephyr_library_sources_ifdef(CONFIG_GREYBUS_VIBRATOR vibrator.c)
 zephyr_library_sources_ifdef(CONFIG_GREYBUS_FW fw_management.c fw_download.c)
 zephyr_library_sources_ifdef(CONFIG_GREYBUS_LOG_BACKEND log.c)
 zephyr_library_sources_ifdef(CONFIG_GREYBUS_RAW raw.c)
+endif()

@@ -24,8 +24,9 @@ static int cport_add(struct gb_host *host, struct gb_cport *cport, uint8_t id)
 	return 0;
 }
 
-struct gb_cport *gb_cport_add(struct gb_host *host, const struct gb_driver *driver,
-			      const void *priv, uint8_t protocol, uint8_t id)
+struct gb_cport *gb_cport_add(struct gb_host *host, const struct gb_bundle_driver *bundle_driver,
+			      const struct gb_driver *driver, void *priv, uint8_t protocol,
+			      uint8_t id)
 {
 	struct gb_cport *cport = gb_alloc(sizeof(struct gb_cport));
 	if (!cport) {

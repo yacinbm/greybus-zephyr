@@ -162,13 +162,6 @@ config GREYBUS_CAMERA
 	help
 	  Select this for Greybus Camera support.
 
-config GREYBUS_GPIO
-	bool "Greybus GPIO"
-	depends on GPIO
-	depends on GPIO_GET_DIRECTION
-	help
-	  Select this for Greybus GPIO support.
-
 config GREYBUS_HID
 	bool "Greybus HID"
 	help
@@ -350,6 +343,14 @@ config GREYBUS_XPORT_UART_HDLC
 	  This uses the UART-HDLC transport for Greybus.
 
 endchoice
+
+
+config GREYBUS_GPIO
+	bool "Greybus GPIO"
+	depends on GPIO
+	depends on GPIO_GET_DIRECTION
+	help
+	  Select this for Greybus GPIO support.
 
 endif # GREYBUS_NODE || GREYBUS_HOST
 

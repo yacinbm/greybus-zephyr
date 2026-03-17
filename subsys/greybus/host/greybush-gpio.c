@@ -19,7 +19,7 @@
 
 #include "../greybus_internal.h"
 #include "../greybus_transport.h"
-
+#include "../greybus_cport.h"
 
 LOG_MODULE_REGISTER(greybush_gpio, CONFIG_GREYBUS_LOG_LEVEL);
 
@@ -29,20 +29,19 @@ struct gpio_greybush_data {
 	u8 ngpios;
 };
 
+static int gpio_greybush_op_handler() {};
+
 static int gpio_greybus_activate(const struct device *dev, gpio_pin_t pin)
 {
 	return 0;
 }
-
 
 static int gpio_greybus_deactivate(const struct device *dev, gpio_pin_t pin)
 {
 	return 0;
 }
 
-static int gpio_greybush_configure(const struct device *dev,
-				   gpio_pin_t pin,
-				   gpio_flags_t flags)
+static int gpio_greybush_configure(const struct device *dev, gpio_pin_t pin, gpio_flags_t flags)
 {
 	struct gpio_greybush_data *data = dev->data;
 	__u8 gpio_index = (__u8)pin;
@@ -50,24 +49,28 @@ static int gpio_greybush_configure(const struct device *dev,
 	struct gb_message *req;
 	int ret;
 
-	if (pin >= data->ngpios)
+	if (pin >= data->ngpios) {
 		return -EINVAL;
+	}
 
-	if (!IS_BIT_SET(data->activated, pin))
+	if (!IS_BIT_SET(data->activated, pin)) {
 		if (!(flags & (GPIO_OUTPUT | GPIO_INPUT))) {
 			return 0;
 
-		ret = gpio_greybus_activate(dev, pin);
-		if (ret)
-			return ret;
+			ret = gpio_greybus_activate(dev, pin);
+			if (ret) {
+				return ret;
+			}
 
-		data->activated |= BIT(pin);
+			data->activated |= BIT(pin);
+		}
 	}
 
 	if (flags & GPIO_OUTPUT) {
 		struct gb_gpio_direction_out_request *req_data;
 
-		req = gb_message_request_alloc(sizeof(*req_data), GB_GPIO_TYPE_DIRECTION_OUT, false);
+		req = gb_message_request_alloc(sizeof(*req_data), GB_GPIO_TYPE_DIRECTION_OUT,
+					       false);
 		if (!req) {
 			LOG_ERR("Failed to allocate message");
 			return -ENOMEM;
@@ -86,7 +89,8 @@ static int gpio_greybush_configure(const struct device *dev,
 
 		req_data->which = gpio_index;
 		req_data->value = out;
-		req->header.size = sizeof(struct gb_message) + sizeof(struct gb_gpio_direction_out_request);
+		req->header.size =
+			sizeof(struct gb_message) + sizeof(struct gb_gpio_direction_out_request);
 
 	} else if (flags & GPIO_INPUT) {
 		struct gb_gpio_direction_in_request *req_data;
@@ -100,7 +104,8 @@ static int gpio_greybush_configure(const struct device *dev,
 		req_data = (struct gb_gpio_direction_in_request *)req->payload;
 
 		req_data->which = gpio_index;
-		req->header.size = sizeof(struct gb_message) + sizeof(struct gb_gpio_direction_in_request);
+		req->header.size =
+			sizeof(struct gb_message) + sizeof(struct gb_gpio_direction_in_request);
 	} else {
 		gpio_greybus_deactivate(dev, gpio_index);
 		return 0;
@@ -113,9 +118,7 @@ static int gpio_greybush_configure(const struct device *dev,
 }
 
 #ifdef CONFIG_GPIO_GET_CONFIG
-static int gpio_gecko_get_config(const struct device *dev,
-				 gpio_pin_t pin,
-				 gpio_flags_t *out_flags)
+static int gpio_gecko_get_config(const struct device *dev, gpio_pin_t pin, gpio_flags_t *out_flags)
 {
 	const struct gpio_gecko_config *config = dev->config;
 	GPIO_Port_TypeDef gpio_index = config->gpio_index;
@@ -342,19 +345,16 @@ static struct greybush_bundle_class_match greybush_gpio_match = {
 	.protocol = 0x02,
 };
 
-static int greybush_gpio_probe(const gb_cport *cport)
+static int greybush_gpio_probe(const struct gb_cport *cport)
 {
+	struct device *dev = cport->priv;
+	struct gpio_greybush_data *data = dev->data;
+
 	return 0;
 }
 
-static void greybush_gpio_disconnected(const void *priv)
-{
-	return;
-}
-
-struct gb_driver greybush_class_gpio_driver = {
+struct gb_bundle_driver greybush_class_gpio_driver = {
 	.probe = greybush_gpio_probe,
-	.disconnected = greybush_gpio_disconnected,
 };
 
 // static struct gpio_greybush_class_api uvc_class_api = {
@@ -363,32 +363,29 @@ struct gb_driver greybush_class_gpio_driver = {
 // };
 //
 
-GREYBUSH_DEFINE_BUNDLE_CLASS(greybush_gpio_driver,
-			     NULL,
-			     &greybush_gpio_match);
+// GREYBUSH_DEFINE_BUNDLE_CLASS(greybush_gpio_driver, &gpio, NULL, &greybush_gpio_match);
 
 static int gpio_greybush_init(const struct device *dev)
 {
 	return 0;
 }
 
-#define CONFIG_GREYBUSH_CLASS_GPIO_INSTANCES_COUNT 1
-#define CONFIG_GREYBUSH_CLASS_PRIORITY 50
+static struct gb_driver gpio_greybush_driver = {.op_handler = gpio_greybush_op_handler};
 
-#define GREYBUSH_GPIO_DEVICE_DEFINE(n, _)					\
-										\
-	static struct gpio_greybush_data gpio_greybush_data_##n = {		\
-	};									\
-										\
-	DEVICE_DEFINE(gpio_greybush_##n, "gpio_greybush_"#n,			\
-		      gpio_greybush_init,	NULL,				\
-		      &gpio_greybush_data_##n, NULL,				\
-		      POST_KERNEL, CONFIG_GREYBUSH_CLASS_PRIORITY,		\
-		      &gpio_greybush_driver_api);				\
-										\
-	GREYBUS_DEFINE_BUNDLE_CLASS(greybus_c_data_##n, &greybush_class_gpio_driver,		\
-			  (void *)DEVICE_GET(gpio_greybush_##n),		\
-			  &greybush_gpio_match);
+#define CONFIG_GREYBUSH_CLASS_GPIO_INSTANCES_COUNT 1
+#define CONFIG_GREYBUSH_CLASS_PRIORITY             50
+
+#define GREYBUSH_GPIO_DEVICE_DEFINE(n, _)                                                          \
+                                                                                                   \
+	static struct gpio_greybush_data gpio_greybush_data_##n = {};                              \
+                                                                                                   \
+	DEVICE_DEFINE(gpio_greybush_##n, "gpio_greybush_" #n, gpio_greybush_init, NULL,            \
+		      &gpio_greybush_data_##n, NULL, POST_KERNEL, CONFIG_GREYBUSH_CLASS_PRIORITY,  \
+		      &gpio_greybush_driver_api);                                                  \
+                                                                                                   \
+	GREYBUSH_DEFINE_BUNDLE_CLASS(greybus_c_data_##n, &greybush_class_gpio_driver,              \
+				     &gpio_greybush_driver, (void *)DEVICE_GET(gpio_greybush_##n), \
+				     &greybush_gpio_match);
 
 LISTIFY(CONFIG_GREYBUSH_CLASS_GPIO_INSTANCES_COUNT, GREYBUSH_GPIO_DEVICE_DEFINE, ())
 
@@ -430,31 +427,28 @@ static int gpio_gecko_common_init(const struct device *dev)
 	return 0;
 }
 
-#define GPIO_PORT_INIT(idx) \
-static int gpio_gecko_port##idx##_init(const struct device *dev); \
-\
-static const struct gpio_gecko_config gpio_gecko_port##idx##_config = { \
-	.common = { \
-		.port_pin_mask = (gpio_port_pins_t)(-1), \
-	}, \
-	.gpio_index = GET_GECKO_GPIO_INDEX(idx), \
-}; \
-\
-static struct gpio_gecko_data gpio_gecko_port##idx##_data; \
-\
-DEVICE_DT_INST_DEFINE(idx, \
-		    gpio_gecko_port##idx##_init, \
-		    NULL, \
-		    &gpio_gecko_port##idx##_data, \
-		    &gpio_gecko_port##idx##_config, \
-		    POST_KERNEL, CONFIG_GPIO_INIT_PRIORITY, \
-		    &gpio_gecko_driver_api); \
-\
-static int gpio_gecko_port##idx##_init(const struct device *dev) \
-{ \
-	gpio_gecko_add_port(&gpio_gecko_common_data, dev); \
-	return 0; \
-}
+#define GPIO_PORT_INIT(idx)                                                                        \
+	static int gpio_gecko_port##idx##_init(const struct device *dev);                          \
+                                                                                                   \
+	static const struct gpio_gecko_config gpio_gecko_port##idx##_config = {                    \
+		.common =                                                                          \
+			{                                                                          \
+				.port_pin_mask = (gpio_port_pins_t)(-1),                           \
+			},                                                                         \
+		.gpio_index = GET_GECKO_GPIO_INDEX(idx),                                           \
+	};                                                                                         \
+                                                                                                   \
+	static struct gpio_gecko_data gpio_gecko_port##idx##_data;                                 \
+                                                                                                   \
+	DEVICE_DT_INST_DEFINE(idx, gpio_gecko_port##idx##_init, NULL,                              \
+			      &gpio_gecko_port##idx##_data, &gpio_gecko_port##idx##_config,        \
+			      POST_KERNEL, CONFIG_GPIO_INIT_PRIORITY, &gpio_gecko_driver_api);     \
+                                                                                                   \
+	static int gpio_gecko_port##idx##_init(const struct device *dev)                           \
+	{                                                                                          \
+		gpio_gecko_add_port(&gpio_gecko_common_data, dev);                                 \
+		return 0;                                                                          \
+	}
 
 DT_INST_FOREACH_STATUS_OKAY(GPIO_PORT_INIT)
 #endif

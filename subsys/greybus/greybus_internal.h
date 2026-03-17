@@ -10,6 +10,8 @@
 #include <greybus/greybus.h>
 #include "greybus_cport.h"
 
+struct gb_cport;
+
 typedef void (*gb_operation_handler_t)(const void *priv, struct gb_message *msg, uint16_t cport);
 
 struct gb_driver {
@@ -20,7 +22,7 @@ struct gb_driver {
 };
 
 struct gb_bundle_driver {
-	void (*probe)(const struct gb_cport *cport);
+	int (*probe)(const struct gb_cport *cport);
 };
 
 enum gb_event {
