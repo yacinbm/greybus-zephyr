@@ -8,8 +8,29 @@
 
 };
 
-&eusart1 {
-	zephyr,greybus-host {
+&pinctrl {
+	eusart0_exp_uart: eusart0_exp_uart {
+		group0 {
+			pins = <EUSART0_TX_PA5>;
+			drive-push-pull;
+			output-high;
+		};
+
+		group1 {
+			pins = <EUSART0_RX_PA6>;
+			input-enable;
+			silabs,input-filter;
+		};
+	};
+};
+
+&eusart0 {
+	compatible = "silabs,eusart-uart";
+	pinctrl-0 = <&eusart0_exp_uart>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	gb_uart: zephyr,greybus-host {
 		status = "okay";
 	};
 };

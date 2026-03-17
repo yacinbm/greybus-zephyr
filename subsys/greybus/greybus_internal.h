@@ -8,15 +8,19 @@
 #define _GREYBUS_INTERNAL_H_
 
 #include <greybus/greybus.h>
+#include "greybus_cport.h"
 
 typedef void (*gb_operation_handler_t)(const void *priv, struct gb_message *msg, uint16_t cport);
 
 struct gb_driver {
-	void (*probe)(const void *priv);
 	void (*connected)(const void *priv, uint16_t cport);
 	void (*disconnected)(const void *priv);
 
 	gb_operation_handler_t op_handler;
+};
+
+struct gb_bundle_driver {
+	void (*probe)(const struct gb_cport *cport);
 };
 
 enum gb_event {

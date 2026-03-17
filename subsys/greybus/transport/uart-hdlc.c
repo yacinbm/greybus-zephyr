@@ -18,7 +18,9 @@ K_MSGQ_DEFINE(rx_msgq, sizeof(struct gb_msg_with_cport), 2, 1);
 // eusart0
 // #define UART_DEVICE_NODE DT_CHOSEN(zephyr_uart_pipe)
 // usart0
-#define UART_DEVICE_NODE DT_CHOSEN(zephyr_console)
+
+// TODO: use the DT_PARENT of the UART HDLC compatible string node
+#define GREYBUS_UART_DEVICE_NODE DT_NODELABEL(gb_uart)
 
 LOG_MODULE_REGISTER(greybus_basic, CONFIG_GREYBUS_LOG_LEVEL);
 
@@ -28,7 +30,7 @@ struct hdlc_greybus_frame {
 	uint8_t payload[];
 } __packed;
 
-static const struct device *const uart_dev = DEVICE_DT_GET(UART_DEVICE_NODE);
+static const struct device *const uart_dev = DEVICE_DT_GET(DT_PARENT(GREYBUS_UART_DEVICE_NODE));
 
 static void serial_callback(const struct device *dev, void *user_data)
 {

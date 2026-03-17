@@ -290,6 +290,13 @@ config GREYBUS_HOST
 
 if GREYBUS_HOST
 
+config GREYBUS_HOST_INIT_PRIORITY
+	int "Greybus Host Init Priority"
+	default 85
+	range 0 99
+	help
+	  Greybus host init priority to ensure device initialization order.
+
 config GREYBUS_HOST_CPORT_MAX_COUNT
 	int "Maximum number of cports supported by Greybus Host"
 	default 10

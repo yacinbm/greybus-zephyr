@@ -98,14 +98,6 @@ DT_FOREACH_CHILD_STATUS_OKAY(_GREYBUS_BASE_NODE, GB_PRIV_DATA_HANDLER)
 
 #define GB_CPORT_SPI_PRIV_DATA(_node_id, _prop, _idx) &gb_spi_priv_data_##_idx
 
-#define GB_CPORT(_priv, _bundle, _protocol, _driver)                                               \
-	{                                                                                          \
-		.bundle = _bundle,                                                                 \
-		.protocol = _protocol,                                                             \
-		.priv = _priv,                                                                     \
-		.driver = _driver,                                                                 \
-	}
-
 #define _GB_CPORT(_node_id, _prop, _idx, _bundle, _protocol, _driver, PRIV_FN)                     \
 	GB_CPORT(PRIV_FN(_node_id, _prop, _idx), _bundle, _protocol, _driver)
 
