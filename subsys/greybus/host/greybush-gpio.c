@@ -23,22 +23,97 @@
 
 LOG_MODULE_REGISTER(greybush_gpio, CONFIG_GREYBUS_LOG_LEVEL);
 
+struct gpio_greybush_msg_queue_item {
+	const struct device *dev;
+	struct gb_message *msg;
+};
+
 struct gpio_greybush_data {
+	struct k_msgq msgq;
+	char msgq_buffer[1 * sizeof(struct gpio_greybush_msg_queue_item)];
+
 	uint16_t cport;
 	uint32_t activated;
 	u8 ngpios;
 };
 
-static int gpio_greybush_op_handler() {};
+static void gpio_greybush_op_handler(const void *priv, struct gb_message *msg, uint16_t cport)
+{
+	const struct device *dev = priv;
+	struct gpio_greybush_data *data = dev->data;
+
+	struct gpio_greybush_msg_queue_item item = {
+		.dev = dev,
+		.msg = msg,
+	};
+
+	/* send data to consumers */
+        while (k_msgq_put(&data->msgq, &item, K_NO_WAIT) != 0) {
+        }
+}
 
 static int gpio_greybus_activate(const struct device *dev, gpio_pin_t pin)
 {
+	struct gpio_greybush_data *data = dev->data;
+	struct gb_gpio_activate_request *req_data;
+	struct gb_message *req;
+	struct gpio_greybush_msg_queue_item resp_item;
+
+	req = gb_message_request_alloc(sizeof(*req_data), GB_GPIO_TYPE_ACTIVATE, false);
+	if (!req) {
+		LOG_ERR("Failed to allocate message");
+		return -ENOMEM;
+	}
+
+	req_data = (struct gb_gpio_activate_request *)req->payload;
+	req_data->which = (__u8)pin;
+
+	gb_transport_message_send(req, data->cport);
+	gb_message_dealloc(req);
+
+	 while (k_msgq_get(&data->msgq, &resp_item, K_FOREVER) != 0);
+
+	__ASSERT(gb_message_is_response(resp_item.msg), "GB Message should be a response");
+	__ASSERT(gb_message_is_success(resp_item.msg), "GB Message should be a success");
+	__ASSERT(gb_message_type(resp_item.msg) == GB_GPIO_TYPE_ACTIVATE, "GB Message type should be GPIO ACTIVATE");
+
 	return 0;
 }
 
 static int gpio_greybus_deactivate(const struct device *dev, gpio_pin_t pin)
 {
 	return 0;
+}
+
+static int gpio_greybush_get_line_count(const struct device *dev)
+{
+	struct gpio_greybush_data *data = dev->data;
+	struct gb_message *req;
+	struct gb_gpio_line_count_response *resp_data;
+	struct gpio_greybush_msg_queue_item resp_item;
+
+	req = gb_message_request_alloc(0, GB_GPIO_TYPE_LINE_COUNT, false);
+	if (!req) {
+		LOG_ERR("Failed to allocate message");
+		return -ENOMEM;
+	}
+
+	gb_transport_message_send(req, data->cport);
+	gb_message_dealloc(req);
+
+	 while (k_msgq_get(&data->msgq, &resp_item, K_FOREVER) != 0);
+
+	__ASSERT(gb_message_is_response(resp_item.msg), "GB Message should be a response");
+	__ASSERT(gb_message_is_success(resp_item.msg), "GB Message should be a success");
+	__ASSERT(gb_message_type(resp_item.msg) == GB_GPIO_TYPE_LINE_COUNT, "GB Message type should be GPIO ACTIVATE");
+
+	resp_data = (struct gb_gpio_line_count_response*)resp_item.msg->payload;
+
+	int line_count = resp_data->count;
+
+	gb_message_dealloc(resp_item.msg);
+
+	return line_count;
 }
 
 static int gpio_greybush_configure(const struct device *dev, gpio_pin_t pin, gpio_flags_t flags)
@@ -347,8 +422,10 @@ static struct greybush_bundle_class_match greybush_gpio_match = {
 
 static int greybush_gpio_probe(const struct gb_cport *cport)
 {
-	struct device *dev = cport->priv;
+	const struct device *dev = cport->priv;
 	struct gpio_greybush_data *data = dev->data;
+
+	data->ngpios = gpio_greybush_get_line_count(dev);
 
 	return 0;
 }
@@ -367,10 +444,19 @@ struct gb_bundle_driver greybush_class_gpio_driver = {
 
 static int gpio_greybush_init(const struct device *dev)
 {
+	struct gpio_greybush_data *data = dev->data;
+
+	k_msgq_init(&data->msgq,
+		    data->msgq_buffer,
+		    sizeof(struct gpio_greybush_msg_queue_item),
+		    1);
+
 	return 0;
 }
 
-static struct gb_driver gpio_greybush_driver = {.op_handler = gpio_greybush_op_handler};
+static struct gb_driver gpio_greybush_driver = {
+	.op_handler = gpio_greybush_op_handler
+};
 
 #define CONFIG_GREYBUSH_CLASS_GPIO_INSTANCES_COUNT 1
 #define CONFIG_GREYBUSH_CLASS_PRIORITY             50
