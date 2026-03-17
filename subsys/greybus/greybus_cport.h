@@ -25,9 +25,8 @@ struct gb_cport {
 		.driver = _driver,                                                                 \
 	}
 
-struct gb_cport *gb_cport_new(const struct gb_driver *driver, const void *priv, uint8_t protocol,
-			      uint16_t id);
-int gb_cport_register(struct gb_cport *cport, uint8_t id);
+struct gb_cport *gb_cport_add(struct gb_host *host, const struct gb_driver *driver,
+			      const void *priv, uint8_t protocol, uint8_t id);
 const struct gb_cport *gb_cport_get(uint16_t cport);
 
 /**

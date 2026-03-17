@@ -2,6 +2,7 @@
 #include "greybus_cport.h"
 #include "greybus-manifest.h"
 #include "greybus_heap.h"
+#include <greybus/host.h>
 
 LOG_MODULE_REGISTER(greybus_cport_host, CONFIG_GREYBUS_LOG_LEVEL);
 
@@ -17,8 +18,14 @@ extern const struct gb_control_priv_data gb_control_priv_data;
 
 static struct gb_cport *cports[CONFIG_GREYBUS_HOST_CPORT_MAX_COUNT];
 
-struct gb_cport *gb_cport_new(const struct gb_driver *driver, const void *priv, uint8_t protocol,
-			      uint16_t id)
+static int cport_add(struct gb_host *host, struct gb_cport *cport, uint8_t id)
+{
+	host->cports[id] = cport;
+	return 0;
+}
+
+struct gb_cport *gb_cport_add(struct gb_host *host, const struct gb_driver *driver,
+			      const void *priv, uint8_t protocol, uint8_t id)
 {
 	struct gb_cport *cport = gb_alloc(sizeof(struct gb_cport));
 	if (!cport) {
@@ -29,13 +36,9 @@ struct gb_cport *gb_cport_new(const struct gb_driver *driver, const void *priv, 
 	cport->priv = priv;
 	cport->protocol = protocol;
 
-	return cport;
-}
+	cport_add(host, cport, id);
 
-int gb_cport_register(struct gb_cport *cport, uint8_t id)
-{
-	cports[id] = cport;
-	return 0;
+	return cport;
 }
 
 const struct gb_cport *gb_cport_get(uint16_t cport)
