@@ -29,6 +29,9 @@ struct gpio_greybush_msg_queue_item {
 };
 
 struct gpio_greybush_data {
+	/* gpio_driver_data needs to be first */
+	struct gpio_driver_data common;
+
 	struct k_msgq msgq;
 	char msgq_buffer[1 * sizeof(struct gpio_greybush_msg_queue_item)];
 
@@ -118,6 +121,7 @@ static int gpio_greybush_get_line_count(const struct device *dev)
 
 static int gpio_greybush_configure(const struct device *dev, gpio_pin_t pin, gpio_flags_t flags)
 {
+	struct gpio_greybush_msg_queue_item resp_item;
 	struct gpio_greybush_data *data = dev->data;
 	__u8 gpio_index = (__u8)pin;
 	unsigned int out = 0U;
@@ -189,8 +193,58 @@ static int gpio_greybush_configure(const struct device *dev, gpio_pin_t pin, gpi
 	gb_transport_message_send(req, data->cport);
 	gb_message_dealloc(req);
 
+	 while (k_msgq_get(&data->msgq, &resp_item, K_FOREVER) != 0);
+
+	__ASSERT(gb_message_is_response(resp_item.msg), "GB Message should be a response");
+	__ASSERT(gb_message_is_success(resp_item.msg), "GB Message should be a success");
+
+	gb_message_dealloc(resp_item.msg);
+
 	return 0;
 }
+
+static int gpio_greybush_set_pin_value(const struct device *dev, u8 gpio, u8 value)
+{
+	struct gpio_greybush_data *data = dev->data;
+	struct gb_message *req;
+	struct gb_gpio_set_value_request *req_data;
+	struct gpio_greybush_msg_queue_item resp_item;
+
+	req = gb_message_request_alloc(0, GB_GPIO_TYPE_SET_VALUE, false);
+	if (!req) {
+		LOG_ERR("Failed to allocate message");
+		return -ENOMEM;
+	}
+
+	req_data = (struct gb_gpio_set_value_request *)req->payload;
+	req_data->which = (__u8)gpio;
+	req_data->value = value;
+
+	gb_transport_message_send(req, data->cport);
+	gb_message_dealloc(req);
+
+	 while (k_msgq_get(&data->msgq, &resp_item, K_FOREVER) != 0);
+
+	__ASSERT(gb_message_is_response(resp_item.msg), "GB Message should be a response");
+	__ASSERT(gb_message_is_success(resp_item.msg), "GB Message should be a success");
+	__ASSERT(gb_message_type(resp_item.msg) == GB_GPIO_TYPE_SET_VALUE, "GB Message type should be GPIO SET VALUE");
+
+	gb_message_dealloc(resp_item.msg);
+
+	return 0;
+}
+
+static int gpio_greybush_set_bits_raw(const struct device *dev, uint32_t mask)
+{
+	return gpio_greybush_set_pin_value(dev, LSB_GET(mask), 1);
+}
+
+static int gpio_gecko_port_clear_bits_raw(const struct device *dev,
+					  uint32_t mask)
+{
+	return gpio_greybush_set_pin_value(dev, LSB_GET(mask), 0);
+}
+
 
 #ifdef CONFIG_GPIO_GET_CONFIG
 static int gpio_gecko_get_config(const struct device *dev, gpio_pin_t pin, gpio_flags_t *out_flags)
@@ -283,29 +337,8 @@ static int gpio_gecko_port_set_masked_raw(const struct device *dev,
 
 	return 0;
 }
-
-static int gpio_gecko_port_set_bits_raw(const struct device *dev,
-					uint32_t mask)
-{
-	const struct gpio_gecko_config *config = dev->config;
-	GPIO_Port_TypeDef gpio_index = config->gpio_index;
-
-	GPIO_PortOutSet(gpio_index, mask);
-
-	return 0;
-}
-
-static int gpio_gecko_port_clear_bits_raw(const struct device *dev,
-					  uint32_t mask)
-{
-	const struct gpio_gecko_config *config = dev->config;
-	GPIO_Port_TypeDef gpio_index = config->gpio_index;
-
-	GPIO_PortOutClear(gpio_index, mask);
-
-	return 0;
-}
-
+#endif
+#if 0
 static int gpio_gecko_port_toggle_bits(const struct device *dev,
 				       uint32_t mask)
 {
@@ -401,14 +434,14 @@ static void gpio_gecko_common_isr(const struct device *dev)
 
 static DEVICE_API(gpio, gpio_greybush_driver_api) = {
 	.pin_configure = gpio_greybush_configure,
+	.port_set_bits_raw = gpio_greybush_set_bits_raw,
+	.port_clear_bits_raw = gpio_gecko_port_clear_bits_raw,
 #ifdef CONFIG_GPIO_GET_CONFIG
 	.pin_get_config = gpio_gecko_get_config,
 #endif
 #if 0
 	.port_get_raw = gpio_gecko_port_get_raw,
 	.port_set_masked_raw = gpio_gecko_port_set_masked_raw,
-	.port_set_bits_raw = gpio_gecko_port_set_bits_raw,
-	.port_clear_bits_raw = gpio_gecko_port_clear_bits_raw,
 	.port_toggle_bits = gpio_gecko_port_toggle_bits,
 	.pin_interrupt_configure = gpio_gecko_pin_interrupt_configure,
 	.manage_callback = gpio_gecko_manage_callback,
