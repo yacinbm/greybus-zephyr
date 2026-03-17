@@ -342,9 +342,9 @@ static struct greybush_bundle_class_match greybush_gpio_match = {
 	.protocol = 0x02,
 };
 
-static void greybush_gpio_probe(const void *priv)
+static int greybush_gpio_probe(const gb_cport *cport)
 {
-	return;
+	return 0;
 }
 
 static void greybush_gpio_disconnected(const void *priv)
@@ -352,14 +352,45 @@ static void greybush_gpio_disconnected(const void *priv)
 	return;
 }
 
-struct gb_driver greybush_gpio_driver = {
+struct gb_driver greybush_class_gpio_driver = {
 	.probe = greybush_gpio_probe,
 	.disconnected = greybush_gpio_disconnected,
 };
 
+// static struct gpio_greybush_class_api uvc_class_api = {
+// 	.probe = greybush_gpio_probe,
+// 	.disconnected = greybush_gpio_disconnected,
+// };
+//
+
 GREYBUSH_DEFINE_BUNDLE_CLASS(greybush_gpio_driver,
 			     NULL,
 			     &greybush_gpio_match);
+
+static int gpio_greybush_init(const struct device *dev)
+{
+	return 0;
+}
+
+#define CONFIG_GREYBUSH_CLASS_GPIO_INSTANCES_COUNT 1
+#define CONFIG_GREYBUSH_CLASS_PRIORITY 50
+
+#define GREYBUSH_GPIO_DEVICE_DEFINE(n, _)					\
+										\
+	static struct gpio_greybush_data gpio_greybush_data_##n = {		\
+	};									\
+										\
+	DEVICE_DEFINE(gpio_greybush_##n, "gpio_greybush_"#n,			\
+		      gpio_greybush_init,	NULL,				\
+		      &gpio_greybush_data_##n, NULL,				\
+		      POST_KERNEL, CONFIG_GREYBUSH_CLASS_PRIORITY,		\
+		      &gpio_greybush_driver_api);				\
+										\
+	GREYBUS_DEFINE_BUNDLE_CLASS(greybus_c_data_##n, &greybush_class_gpio_driver,		\
+			  (void *)DEVICE_GET(gpio_greybush_##n),		\
+			  &greybush_gpio_match);
+
+LISTIFY(CONFIG_GREYBUSH_CLASS_GPIO_INSTANCES_COUNT, GREYBUSH_GPIO_DEVICE_DEFINE, ())
 
 #if 0
 static DEVICE_API(gpio, gpio_gecko_common_driver_api) = {

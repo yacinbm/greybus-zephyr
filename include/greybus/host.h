@@ -20,7 +20,7 @@ struct greybus_device {
  */
 struct greybush_class_data {
 	/** GB Driver to use */
-	struct gb_driver *drv;
+	struct gb_driver *api;
 
 	/** Pointer to private data */
 	void *priv;
@@ -37,13 +37,13 @@ struct greybush_class_node {
  * @brief Define Greybus host support bundle match
  *
  */
-#define GREYBUSH_DEFINE_BUNDLE_CLASS(bundle_drv, _priv, _filter)	\
-	static struct greybush_class_data CONCAT(gb_bundle_, bundle_drv) = {	\
-		.drv = &bundle_drv,						\
+#define GREYBUSH_DEFINE_BUNDLE_CLASS(bundle_name, bundle_api, _priv, _filter)	\
+	static struct greybush_class_data UTIL_CAT(class_data_, bundle_name) = {	\
+		.api = &bundle_drv,						\
 		.priv = _priv,							\
 	};									\
 	static STRUCT_SECTION_ITERABLE(greybush_class_node, bundle_name) = {	\
-		.c_data = &CONCAT(gb_bundle_, bundle_drv),			\
+		.c_data = &UTIL_CAT(class_data, bundle_name),			\
 		.filter = _filter,						\
 	};
 
